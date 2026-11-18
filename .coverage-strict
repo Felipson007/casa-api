@@ -1,0 +1,15 @@
+# Pacotes que precisam ter pelo menos 80% de cobertura (checado por scripts/coverage.sh).
+# Todo pacote NOVO entra aqui. Quando um pacote antigo passar de 80%, inclua-o também.
+internal/app
+internal/categorize
+internal/payroll
+internal/personrelations
+internal/platform/apperr
+internal/platform/captcha
+internal/platform/cardspend
+internal/platform/logging
+internal/platform/profiling
+internal/platform/secretbox
+internal/platform/textmatch
+internal/pluggy
+internal/spa

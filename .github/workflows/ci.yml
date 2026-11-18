@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Formatação (gofmt)
+        run: |
+          naoformatados="$(gofmt -l .)"
+          if [ -n "$naoformatados" ]; then
+            echo "Arquivos sem gofmt:"; echo "$naoformatados"; exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./... && go vet -tags e2e ./e2e/...
+
+      - name: Prepara o banco dos testes de integração
+        run: echo "TEST_DATABASE_URL=$(scripts/prepare-test-db.sh "$ADMIN_URL")" >> "$GITHUB_ENV"
+
+      - name: Testes (unidade, integração e E2E) com trava de cobertura
+        env:
+          E2E_POSTGRES_URL: ${{ env.ADMIN_URL }}
+        run: scripts/coverage.sh
+
+      - name: Relatório de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura
+          path: coverage/
+          if-no-files-found: ignore

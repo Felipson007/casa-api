@@ -33,3 +33,6 @@ comms/bus.log
 
 # Local Go build cache (set via GOCACHE when running tests in a worktree)
 /.cache/
+
+# Relatórios de cobertura (scripts/coverage.sh)
+coverage/
