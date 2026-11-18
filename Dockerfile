@@ -1,7 +1,7 @@
-# Build context is the shared parent directory of both repos (see .github/workflows/publish.yml) —
-# needed because this stage pulls in the sibling frontend repo, not just this one. Paths below are
-# relative to that parent, not to this Dockerfile's own directory — mirrors the Java app's own
-# src/backend/Dockerfile exactly (same reasoning, same sibling-checkout convention).
+# Build context is the shared parent directory of both repos, checked out side by side as
+# `casa-api/` (this repo) and `casa-app/` (the frontend):
+#   docker build -f casa-api/Dockerfile -t casa-api .
+# Paths below are relative to that parent, not to this Dockerfile's own directory.
 
 # Stage 1: static export of the frontend SPA (no Node process at runtime — see next.config.mjs for
 # the NEXT_OUTPUT_EXPORT=1 / rewrites() split, same mechanism the Java app already uses).
@@ -11,9 +11,9 @@ FROM node:20-alpine AS frontend-build
 # do frontend (ver resolveBackendVersion em app-frontend-atlas/next.config.mjs).
 ARG BACKEND_VERSION=dev
 WORKDIR /frontend
-COPY pandora-loan-helper-frontend/package.json pandora-loan-helper-frontend/package-lock.json ./
+COPY casa-app/package.json casa-app/package-lock.json ./
 RUN npm ci
-COPY pandora-loan-helper-frontend/ .
+COPY casa-app/ .
 ENV NEXT_OUTPUT_EXPORT=1
 ENV NEXT_PUBLIC_BACKEND_VERSION=${BACKEND_VERSION}
 RUN npm run build
@@ -23,15 +23,12 @@ RUN npm run build
 # final stage be a minimal image instead of needing glibc/musl matched to the build environment.
 FROM golang:1.25-alpine AS build
 WORKDIR /workspace
-COPY atlas-go/go.mod atlas-go/go.sum ./
+COPY casa-api/go.mod casa-api/go.sum ./
 RUN go mod download
-COPY atlas-go/cmd/ ./cmd/
-COPY atlas-go/internal/ ./internal/
+COPY casa-api/cmd/ ./cmd/
+COPY casa-api/internal/ ./internal/
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/api ./cmd/api
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/worker ./cmd/worker
-# caldav-probe is a diagnostics-only binary (like cmd/pluggy-probe) so the homelab can check the
-# iCloud Calendar connection from a one-off Job without exposing any credential to a laptop.
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/caldav-probe ./cmd/caldav-probe
 # drive-migrate is an admin one-off: moves a tenant's existing local uploads to its Google Drive
 # (see cmd/drive-migrate). Shipped in the image so it can run via `kubectl exec` inside atlas-api,
 # reusing the pod's env (DATABASE_URL, TENANT_MASTER_KEY, Google creds) and the mounted uploads volume.
@@ -53,7 +50,6 @@ RUN addgroup -S atlas && adduser -S atlas -G atlas
 WORKDIR /app
 COPY --from=build /out/api /app/api
 COPY --from=build /out/worker /app/worker
-COPY --from=build /out/caldav-probe /app/caldav-probe
 COPY --from=build /out/drive-migrate /app/drive-migrate
 COPY --from=frontend-build /frontend/out /app/frontend
 RUN mkdir -p /app/uploads /app/backups && chown -R atlas:atlas /app

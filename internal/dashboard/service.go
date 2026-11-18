@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/atlas/atlas-go/internal/assets"
-	"github.com/atlas/atlas-go/internal/calendar"
 	"github.com/atlas/atlas-go/internal/curator"
 	"github.com/atlas/atlas-go/internal/documents"
 	"github.com/atlas/atlas-go/internal/expenses"
@@ -22,7 +21,6 @@ import (
 	"github.com/atlas/atlas-go/internal/loans"
 	"github.com/atlas/atlas-go/internal/people"
 	"github.com/atlas/atlas-go/internal/personinfo"
-	"github.com/atlas/atlas-go/internal/pets"
 	"github.com/atlas/atlas-go/internal/platform/logging"
 	"github.com/atlas/atlas-go/internal/platform/money"
 	"golang.org/x/sync/errgroup"
@@ -45,13 +43,7 @@ type Service struct {
 	finance    *finance.Service
 	personinfo *personinfo.Service
 	curator    *curator.Service
-	// pets backs the calendar's pet birthdays only. Optional like curator — a nil pets service
-	// costs the calendar those events and nothing else (see CalendarEvents).
-	pets *pets.Service
-	// calendar backs the calendar's manually created events. Optional like pets — a nil service
-	// costs the calendar those events and nothing else (see CalendarEvents).
-	calendar *calendar.Service
-	// investments adds synced Open Finance positions to net worth. Optional like pets: without it
+	// investments adds synced Open Finance positions to net worth. Optional like curator: without it
 	// net worth is exactly what it was before investments existed.
 	investments InvestmentTotals
 }
@@ -78,21 +70,6 @@ func NewService(loansSvc *loans.Service, expensesSvc *expenses.Service, incomeSv
 	return &Service{loans: loansSvc, expenses: expensesSvc, income: incomeSvc, people: peopleSvc,
 		assets: assetsSvc, health: healthSvc, documents: documentsSvc, finance: financeSvc,
 		personinfo: personinfoSvc, curator: dailyCurator}
-}
-
-// WithPets supplies the pets service after construction. NewService's positional signature is
-// already long and every existing caller would have to change; the calendar is the only consumer
-// and degrades cleanly without it.
-func (s *Service) WithPets(petsSvc *pets.Service) *Service {
-	s.pets = petsSvc
-	return s
-}
-
-// WithCalendar supplies the manually created events source after construction — same reasoning as
-// WithPets.
-func (s *Service) WithCalendar(calendarSvc *calendar.Service) *Service {
-	s.calendar = calendarSvc
-	return s
 }
 
 // KPIs mirrors DashboardService.calcularKpis (single month).

@@ -7,7 +7,7 @@ import "testing"
 // without standing up every module. Guards against a finance tool silently dropping out of the
 // "IA Atlas" tool-set again (the reason expenses/income were added in the first place).
 func TestBuildTools_RegistersFinanceReadTools(t *testing.T) {
-	tools := buildTools(nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	tools := buildTools(nil, nil, nil, nil, nil, nil, nil, nil)
 
 	want := []string{
 		"gastos_listar", "gastos_resumo_mensal", "gastos_resumo_anual", "gastos_assinaturas",

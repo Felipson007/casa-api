@@ -22,7 +22,6 @@ import (
 	"github.com/atlas/atlas-go/internal/loans"
 	"github.com/atlas/atlas-go/internal/people"
 	"github.com/atlas/atlas-go/internal/personrelations"
-	"github.com/atlas/atlas-go/internal/pets"
 	"github.com/atlas/atlas-go/internal/platform/civildate"
 )
 
@@ -38,7 +37,7 @@ type toolDef struct {
 }
 
 // buildTools binds the tool registry to the given services.
-func buildTools(loansSvc *loans.Service, peopleSvc *people.Service, petsSvc *pets.Service, healthSvc *health.Service, expensesSvc *expenses.Service, incomeSvc *income.Service, financeSvc *finance.Service, goalsSvc *goals.Service, categoriesSvc *categories.Service) map[string]toolDef {
+func buildTools(loansSvc *loans.Service, peopleSvc *people.Service, healthSvc *health.Service, expensesSvc *expenses.Service, incomeSvc *income.Service, financeSvc *finance.Service, goalsSvc *goals.Service, categoriesSvc *categories.Service) map[string]toolDef {
 	noArgs := map[string]any{"type": "object", "properties": map[string]any{}}
 	uuidArg := func(name, description string) map[string]any {
 		return map[string]any{
@@ -131,13 +130,6 @@ func buildTools(loansSvc *loans.Service, peopleSvc *people.Service, petsSvc *pet
 					return "", err
 				}
 				return marshalResult(peopleSvc.DeriveFromOrigin(ctx, id))
-			},
-		},
-		"pets_listar": {
-			description: "Lista os pets da família.",
-			parameters:  noArgs,
-			run: func(ctx context.Context, args map[string]any) (string, error) {
-				return marshalResult(petsSvc.List(ctx, nil))
 			},
 		},
 		"saude_perfil": {
@@ -356,43 +348,6 @@ func buildTools(loansSvc *loans.Service, peopleSvc *people.Service, petsSvc *pet
 					Email:     optionalString(args, "email"),
 				}
 				return marshalResult(peopleSvc.CreatePerson(ctx, req))
-			},
-		},
-		"pets_criar": {
-			description: "Cadastra um novo pet na família.",
-			write:       true,
-			parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"nome":            map[string]any{"type": "string"},
-					"especie":         map[string]any{"type": "string", "enum": []string{"DOG", "CAT", "BIRD", "FISH", "OTHER"}},
-					"raca":            map[string]any{"type": "string"},
-					"data_nascimento": map[string]any{"type": "string", "description": "Formato YYYY-MM-DD"},
-					"notas":           map[string]any{"type": "string"},
-				},
-				"required": []string{"nome", "especie"},
-			},
-			run: func(ctx context.Context, args map[string]any) (string, error) {
-				nome, err := requireString(args, "nome")
-				if err != nil {
-					return "", err
-				}
-				especie, err := requireString(args, "especie")
-				if err != nil {
-					return "", err
-				}
-				birthDate, err := optionalCivilDate(args, "data_nascimento")
-				if err != nil {
-					return "", err
-				}
-				req := pets.CreatePetRequest{
-					Name:      nome,
-					Species:   pets.Species(especie),
-					Breed:     optionalString(args, "raca"),
-					BirthDate: birthDate,
-					Notes:     optionalString(args, "notas"),
-				}
-				return marshalResult(petsSvc.Create(ctx, req))
 			},
 		},
 		"saude_registro_criar": {

@@ -18,7 +18,6 @@ import (
 	"github.com/atlas/atlas-go/internal/loans"
 	"github.com/atlas/atlas-go/internal/pandora"
 	"github.com/atlas/atlas-go/internal/people"
-	"github.com/atlas/atlas-go/internal/pets"
 	"github.com/atlas/atlas-go/internal/platform/civildate"
 )
 
@@ -44,8 +43,8 @@ responda em inglês; se escrever em português, responda em português; e assim 
 troque de idioma no meio da conversa por conta própria, só quando o usuário trocar primeiro. Nomes
 próprios, valores monetários e termos técnicos (ex.: nomes de ferramentas) permanecem como estão,
 independente do idioma. Use as ferramentas disponíveis para consultar dados reais antes de
-responder — o Atlas cobre finanças (empréstimos, gastos, receitas, assinaturas e saldos), família,
-saúde e pets. Nunca invente valores, e nunca invente um UUID: sempre obtenha ids reais chamando
+responder — o Atlas cobre finanças (empréstimos, gastos, receitas, assinaturas e saldos), família
+e saúde. Nunca invente valores, e nunca invente um UUID: sempre obtenha ids reais chamando
 uma ferramenta de listagem primeiro. Ferramentas que alteram dados
 pausam automaticamente para confirmação do usuário — você não precisa (e não deve tentar) pedir essa
 confirmação você mesmo em texto, apenas chame a ferramenta normalmente. Se uma pergunta não puder
@@ -69,8 +68,8 @@ type Service struct {
 	pending  *pendingStore
 }
 
-func NewService(chatSvc *chat.Service, pandoraSvc *pandora.Service, loansSvc *loans.Service, peopleSvc *people.Service, petsSvc *pets.Service, healthSvc *health.Service, expensesSvc *expenses.Service, incomeSvc *income.Service, financeSvc *finance.Service, goalsSvc *goals.Service, categoriesSvc *categories.Service) *Service {
-	tools := buildTools(loansSvc, peopleSvc, petsSvc, healthSvc, expensesSvc, incomeSvc, financeSvc, goalsSvc, categoriesSvc)
+func NewService(chatSvc *chat.Service, pandoraSvc *pandora.Service, loansSvc *loans.Service, peopleSvc *people.Service, healthSvc *health.Service, expensesSvc *expenses.Service, incomeSvc *income.Service, financeSvc *finance.Service, goalsSvc *goals.Service, categoriesSvc *categories.Service) *Service {
+	tools := buildTools(loansSvc, peopleSvc, healthSvc, expensesSvc, incomeSvc, financeSvc, goalsSvc, categoriesSvc)
 	defs := make([]pandora.ToolDef, 0, len(tools))
 	for name, t := range tools {
 		defs = append(defs, pandora.ToolDef{

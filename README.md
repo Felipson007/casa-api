@@ -9,7 +9,7 @@ PostgreSQL persistence layer and async jobs.
 
 ## Features
 
-- **Finance & loans** — income, expenses, categories, loans, people, pets, documents, reports
+- **Finance & loans** — income, expenses, categories, loans, people, documents, reports
 - **Auth** — Google OAuth2 (cookie session) + password reset
 - **Dashboards & audit** — spending/income dashboards, full audit trail
 - **Documents** — PDF generation (`fpdf`), Excel export (`excelize`), PDF parsing (`ledongthuc/pdf`)

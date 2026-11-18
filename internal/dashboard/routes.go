@@ -21,7 +21,6 @@ func RegisterRoutes(mux *http.ServeMux, handler *Handler) {
 	mux.HandleFunc("GET /api/dashboard/kpis-batch", httpx.Wrap(httpx.RequirePerm(httpx.DefaultCheckPerm, module, httpx.PermRead, handler.KPIsBatch)))
 	mux.HandleFunc("GET /api/dashboard/resumo", httpx.Wrap(httpx.RequirePerm(httpx.DefaultCheckPerm, module, httpx.PermRead, handler.Resumo)))
 	mux.HandleFunc("GET /api/dashboard/net-worth", httpx.Wrap(httpx.RequirePerm(httpx.DefaultCheckPerm, module, httpx.PermRead, handler.NetWorth)))
-	mux.HandleFunc("GET /api/dashboard/calendar", httpx.Wrap(httpx.RequirePerm(httpx.DefaultCheckPerm, module, httpx.PermRead, handler.Calendar)))
 	// Single-call person detail aggregate (composes people + health + documents + assets services).
 	mux.HandleFunc("GET /api/people/{id}/detail", httpx.Wrap(httpx.RequirePerm(httpx.DefaultCheckPerm, module, httpx.PermRead, handler.PersonDetail)))
 }

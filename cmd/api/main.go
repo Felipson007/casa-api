@@ -28,10 +28,6 @@ import (
 	"github.com/atlas/atlas-go/internal/auth"
 	"github.com/atlas/atlas-go/internal/backup"
 	backuppostgres "github.com/atlas/atlas-go/internal/backup/postgres"
-	"github.com/atlas/atlas-go/internal/calendar"
-	calendarpostgres "github.com/atlas/atlas-go/internal/calendar/postgres"
-	"github.com/atlas/atlas-go/internal/calendarsettings"
-	calendarsettingspostgres "github.com/atlas/atlas-go/internal/calendarsettings/postgres"
 	"github.com/atlas/atlas-go/internal/categories"
 	categoriespostgres "github.com/atlas/atlas-go/internal/categories/postgres"
 	"github.com/atlas/atlas-go/internal/chat"
@@ -56,10 +52,8 @@ import (
 	financepostgres "github.com/atlas/atlas-go/internal/finance/postgres"
 	"github.com/atlas/atlas-go/internal/goals"
 	goalspostgres "github.com/atlas/atlas-go/internal/goals/postgres"
-	"github.com/atlas/atlas-go/internal/googlecal"
 	"github.com/atlas/atlas-go/internal/health"
 	healthpostgres "github.com/atlas/atlas-go/internal/health/postgres"
-	"github.com/atlas/atlas-go/internal/icloudcal"
 	"github.com/atlas/atlas-go/internal/income"
 	incomepostgres "github.com/atlas/atlas-go/internal/income/postgres"
 	"github.com/atlas/atlas-go/internal/integrations"
@@ -67,8 +61,6 @@ import (
 	"github.com/atlas/atlas-go/internal/jobexperience"
 	jobexperiencepostgres "github.com/atlas/atlas-go/internal/jobexperience/postgres"
 	"github.com/atlas/atlas-go/internal/jobs"
-	"github.com/atlas/atlas-go/internal/lifemapprefs"
-	lifemapprefspostgres "github.com/atlas/atlas-go/internal/lifemapprefs/postgres"
 	"github.com/atlas/atlas-go/internal/loans"
 	loanspostgres "github.com/atlas/atlas-go/internal/loans/postgres"
 	"github.com/atlas/atlas-go/internal/notifications"
@@ -83,8 +75,6 @@ import (
 	"github.com/atlas/atlas-go/internal/personinfo"
 	personinfopostgres "github.com/atlas/atlas-go/internal/personinfo/postgres"
 	"github.com/atlas/atlas-go/internal/personrelations"
-	"github.com/atlas/atlas-go/internal/pets"
-	petspostgres "github.com/atlas/atlas-go/internal/pets/postgres"
 	"github.com/atlas/atlas-go/internal/platform/captcha"
 	"github.com/atlas/atlas-go/internal/platform/db"
 	"github.com/atlas/atlas-go/internal/platform/dbmigrate"
@@ -177,11 +167,6 @@ func main() {
 	incomeService := income.NewService(incomeRepo)
 	incomeHandler := income.NewHandler(incomeService)
 
-	// Composition root for the pets module. Owned by Claude (D-005); same wiring idiom.
-	petsRepo := petspostgres.NewRepository(pool)
-	petsService := pets.NewService(petsRepo)
-	petsHandler := pets.NewHandler(petsService)
-
 	// Composition root for the assets module. Owned by Claude (D-005); same wiring idiom.
 	assetsRepo := assetspostgres.NewRepository(pool)
 	assetsService := assets.NewService(assetsRepo)
@@ -232,11 +217,6 @@ func main() {
 	dashboardLayoutService := dashboardlayout.NewService(dashboardlayoutpostgres.NewRepository(pool))
 	dashboardLayoutHandler := dashboardlayout.NewHandler(dashboardLayoutService)
 
-	// Composition root for the lifemapprefs module (per-user set of hidden Life Map area ids, saved
-	// from the "Mapa da Vida" card's customization UI). Scoped per app_user_id, like dashboardlayout.
-	lifeMapPrefsService := lifemapprefs.NewService(lifemapprefspostgres.NewRepository(pool))
-	lifeMapPrefsHandler := lifemapprefs.NewHandler(lifeMapPrefsService)
-
 	// Composition root for the finance module (financial_balances + append-only value history).
 	// Owned by Claude.
 	financeRepo := financepostgres.NewRepository(pool)
@@ -245,13 +225,6 @@ func main() {
 
 	goalsService := goals.NewService(goalspostgres.NewRepository(pool))
 	goalsHandler := goals.NewHandler(goalsService)
-
-	// Composition root for the calendar module (events the owner types). The dashboard composes it
-	// too (WithCalendar below) so GET /api/dashboard/calendar serves derived + manual events in one
-	// call.
-	calendarRepo := calendarpostgres.NewRepository(pool)
-	calendarService := calendar.NewService(calendarRepo)
-	calendarHandler := calendar.NewHandler(calendarService)
 
 	// Composition root for the integrations module (external/system credentials + AI config).
 	// Owned by Claude (D-005). Connect/reconnect needs APP_ENCRYPTION_KEY in the env at
@@ -267,41 +240,6 @@ func main() {
 		cfg.FrontendOrigin+"/api/integrations/google-calendar/callback")
 	integrationsService := integrations.NewService(integrationsRepo, googleDriveOAuth).WithGoogleCalendar(googleCalendarOAuth)
 	integrationsHandler := integrations.NewHandler(integrationsService, cfg.FrontendOrigin)
-
-	// materializeRef is filled in once the dashboard service exists (it composes the module
-	// services that produce the derived events); the sync services only call it lazily.
-	var materializeRef func(context.Context) error
-	materializeDerived := func(ctx context.Context) error {
-		if materializeRef == nil {
-			return nil
-		}
-		return materializeRef(ctx)
-	}
-
-	// Composition root for the iCloud Calendar (CalDAV) sync — the Apple half of the calendar
-	// integration. Reuses calendarRepo for storage and integrationsService for the encrypted
-	// credentials; the periodic run lives in cmd/worker.
-	icloudCalendarService := icloudcal.NewService(icloudcal.Deps{
-		Store:       calendarRepo,
-		Credentials: integrationsService,
-		Connector:   integrationsService,
-		Materialize: materializeDerived,
-		Logger:      logger,
-	})
-	icloudCalendarHandler := icloudcal.NewHandler(icloudCalendarService)
-
-	// Composition root for the Google Calendar sync — the Google half, plus the global sync
-	// destination (none/iCloud/Google) that decides which provider the worker runs.
-	googleCalendarService := googlecal.NewService(googlecal.Deps{
-		Store:       calendarRepo,
-		Credentials: integrationsService,
-		Connector:   integrationsService,
-		Materialize: materializeDerived,
-		Logger:      logger,
-	})
-	googleCalendarHandler := googlecal.NewHandler(googleCalendarService, cfg.FrontendOrigin)
-	calendarSettingsService := calendarsettings.NewService(calendarsettingspostgres.NewRepository(pool))
-	calendarSettingsHandler := calendarsettings.NewHandler(calendarSettingsService)
 
 	// Composition root for the people + relationships module (family graph). The deriver is the
 	// personrelations.BFS — injected here so the people package stays pure (no BFS impl imported).
@@ -332,7 +270,7 @@ func main() {
 	healthService := health.NewService(healthRepo)
 	healthHandler := health.NewHandler(healthService)
 
-	// Composition root for the documents module (references assets + pets). Owned by Claude (D-005).
+	// Composition root for the documents module (references assets). Owned by Claude (D-005).
 	// documentsDrive is the tenant's own Drive backend: new uploads are written to
 	// Atlas/{Origem}/{arquivo} and read back through it; local disk (documentsStorage) is kept for
 	// legacy rows and the one-time local→Drive migration (cmd/drive-migrate).
@@ -471,7 +409,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	// Background tasks in this process (calendar sync, the in-process reports runner) are not
+	// Background tasks in this process (the in-process reports runner) are not
 	// request-scoped and therefore carry no tenant schema. Bind them to the default tenant for now;
 	// running them per tenant is the multi-tenant follow-up.
 	bgCtx := ctx
@@ -520,9 +458,9 @@ func main() {
 
 	// Composition root for the assistant module ("IA Atlas") — the tool-calling orchestration
 	// layer internal/chat's own doc comment anticipated. Read tools over the financial modules
-	// (loans, expenses, income, balances, categories), family, pets and health; write tools pause
+	// (loans, expenses, income, balances, categories), family and health; write tools pause
 	// for user confirmation. See internal/assistant/domain.go.
-	assistantService := assistant.NewService(chatService, pandoraService, loansService, peopleService, petsService, healthService, expensesService, incomeService, financeService, goalsService, categoriesService)
+	assistantService := assistant.NewService(chatService, pandoraService, loansService, peopleService, healthService, expensesService, incomeService, financeService, goalsService, categoriesService)
 	assistantHandler := assistant.NewHandler(assistantService)
 
 	// Composition root for the dashboard module — composes the other modules' own services (no
@@ -531,18 +469,8 @@ func main() {
 	curatorRepo := curatorpostgres.NewRepository(pool)
 	curatorService := curator.NewService(curatorRepo, pandoraService, expensesService, incomeService, categoriesService, loansService, clientsService, healthService, financeService, peopleService, goalsService)
 	dashboardService := dashboard.NewService(loansService, expensesService, incomeService, peopleService, assetsService, healthService, documentsService, financeService, personinfoService, curatorService).
-		WithPets(petsService).
-		WithCalendar(calendarService).
 		WithInvestments(openFinanceService)
 	dashboardHandler := dashboard.NewHandler(dashboardService)
-
-	// Derived events (instalments, birthdays, document expirations) are materialized as read-only
-	// calendar rows before every sync, so the provider mirrors the Atlas calendar.
-	materializeRef = func(ctx context.Context) error {
-		now := time.Now()
-		items := dashboardService.DerivedEvents(ctx, now.AddDate(0, 0, -90), now.AddDate(0, 0, 730))
-		return calendarService.ReplaceDerived(ctx, items)
-	}
 
 	// Composition root for the reports module (client loan statement PDF, legacy spreadsheet
 	// export, combined financial PDF) — internal/jobs' durable queue (jobs table, lease-based crash
@@ -569,7 +497,6 @@ func main() {
 	loans.RegisterRoutes(mux, loansHandler)
 	expenses.RegisterRoutes(mux, expensesHandler)
 	income.RegisterRoutes(mux, incomeHandler)
-	pets.RegisterRoutes(mux, petsHandler)
 	assets.RegisterRoutes(mux, assetsHandler)
 	digitalaccounts.RegisterRoutes(mux, digitalAccountsHandler)
 	audit.RegisterRoutes(mux, auditHandler)
@@ -583,16 +510,11 @@ func main() {
 	featureflags.RegisterRoutes(mux, featureFlagsHandler)
 	chat.RegisterRoutes(mux, chatHandler)
 	dashboardlayout.RegisterRoutes(mux, dashboardLayoutHandler)
-	lifemapprefs.RegisterRoutes(mux, lifeMapPrefsHandler)
 	pandora.RegisterRoutes(mux, pandoraHandler)
 	assistant.RegisterRoutes(mux, assistantHandler)
 	finance.RegisterRoutes(mux, financeHandler)
 	goals.RegisterRoutes(mux, goalsHandler)
-	calendar.RegisterRoutes(mux, calendarHandler)
 	integrations.RegisterRoutes(mux, integrationsHandler)
-	icloudcal.RegisterRoutes(mux, icloudCalendarHandler)
-	googlecal.RegisterRoutes(mux, googleCalendarHandler)
-	calendarsettings.RegisterRoutes(mux, calendarSettingsHandler)
 	openfinance.RegisterRoutes(mux, openFinanceHandler)
 	reports.RegisterRoutes(mux, reportsHandler)
 
@@ -661,33 +583,6 @@ func main() {
 			}
 		}()
 	}
-
-	go func() {
-		syncCalendar := func() {
-			target, err := calendarSettingsService.Get(bgCtx)
-			if err != nil {
-				logger.Error("calendar sync: target lookup failed", "cause", err.Error())
-				return
-			}
-			switch target {
-			case calendarsettings.TargetICloud:
-				icloudCalendarService.Tick(bgCtx)
-			case calendarsettings.TargetGoogle:
-				googleCalendarService.Tick(bgCtx)
-			}
-		}
-		syncCalendar()
-		ticker := time.NewTicker(time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				syncCalendar()
-			}
-		}
-	}()
 
 	go func() {
 		<-ctx.Done()

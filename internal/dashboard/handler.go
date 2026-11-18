@@ -70,30 +70,6 @@ func (h *Handler) Resumo(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// Calendar handles GET /api/dashboard/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD — every dated event
-// in the range: loan instalments, birthdays (people and pets), and document expirations. The range
-// is required and explicit so the calendar can render whatever month the user navigates to,
-// including months in the future.
-func (h *Handler) Calendar(w http.ResponseWriter, r *http.Request) error {
-	from, err := parseRangeDate(r.URL.Query().Get("from"), "from")
-	if err != nil {
-		return err
-	}
-	to, err := parseRangeDate(r.URL.Query().Get("to"), "to")
-	if err != nil {
-		return err
-	}
-	if to.Before(from) {
-		return apperr.Validation("to must not be before from", "to")
-	}
-	events, err := h.service.CalendarEvents(r.Context(), from, to)
-	if err != nil {
-		return err
-	}
-	httpx.WriteJSON(w, http.StatusOK, events)
-	return nil
-}
-
 func parseRangeDate(raw, field string) (time.Time, error) {
 	if raw == "" {
 		return time.Time{}, apperr.Validation(field+" is required (YYYY-MM-DD)", field)
