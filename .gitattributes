@@ -1,0 +1,12 @@
+* text=auto eol=lf
+
+*.sql text
+*.go text
+*.md text
+*.sh text
+*.json text
+*.yaml text
+*.yml text
+
+testdata/prod-dump.sql binary
+testdata/seed.sql binary

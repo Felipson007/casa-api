@@ -1,0 +1,16 @@
+services:
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    command: ["-host=0.0.0.0"]
+    ports:
+      - "8474:8474"
+    depends_on:
+      atlas-postgres:
+        condition: service_healthy
+
+  atlas-api:
+    depends_on:
+      toxiproxy:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgres://atlas:${DB_PASSWORD}@toxiproxy:5432/atlas_prod?sslmode=disable

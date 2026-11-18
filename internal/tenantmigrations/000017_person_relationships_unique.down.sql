@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_person_relationships_unique_edge;

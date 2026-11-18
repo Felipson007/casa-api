@@ -1,0 +1,12 @@
+[Unit]
+Description=Builda a imagem do atlas (backend + SPA) e publica no GHCR
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Root porque precisa do docker e escreve o state em /var/lib/atlas-build. Alternativa mais
+# restrita: um usuario no grupo docker + StateDirectory=atlas-build.
+User=root
+ExecStart=/usr/local/bin/atlas-build.sh

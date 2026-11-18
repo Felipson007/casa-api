@@ -1,0 +1,6 @@
+ALTER TABLE people
+    DROP COLUMN IF EXISTS nickname,
+    DROP COLUMN IF EXISTS birth_date,
+    DROP COLUMN IF EXISTS notes,
+    DROP COLUMN IF EXISTS active,
+    DROP COLUMN IF EXISTS email;

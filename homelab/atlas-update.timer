@@ -1,0 +1,11 @@
+[Unit]
+Description=Roda atlas-update.service a cada 5 minutos (auto-deploy de push no GitHub)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=atlas-update.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

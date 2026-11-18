@@ -1,0 +1,134 @@
+# Parallel, isolated stack for the homelab — own Postgres, own network, own volumes. Plain compose
+# managed via SSH, so it stays simple to version/automate and never touches the Java stack's config.
+# (Produção roda em k3s/ArgoCD — ver docs/homelab-deploy.md; isto é a alternativa local.)
+#
+# Deploy: `docker compose -f docker-compose.homelab.yml pull && docker compose -f
+# docker-compose.homelab.yml up -d`. Needs a `.env` next to this file (never committed — see
+# .env.example).
+name: atlas-go
+
+services:
+  atlas-postgres:
+    image: postgres:16-alpine
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - effective_cache_size=256MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - max_connections=40
+    environment:
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: atlas_prod
+    volumes:
+      - atlas_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "atlas", "-d", "atlas_prod"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 320M
+    restart: unless-stopped
+
+  atlas-api:
+    image: ghcr.io/gustavodvp/app-golang-atlas:latest
+    pull_policy: always
+    depends_on:
+      atlas-postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://atlas:${DB_PASSWORD}@atlas-postgres:5432/atlas_prod?sslmode=disable
+      PORT: "8080"
+      APP_FRONTEND_ORIGIN: ${APP_FRONTEND_ORIGIN}
+      APP_UPLOADS_DIR: /app/uploads
+      APP_TIMEZONE: America/Sao_Paulo
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      # Shared token for the one unauthenticated route (POST /api/public/dashboard-chat). Empty =>
+      # route not registered. See .env.example.
+      DASHBOARD_CHAT_TOKEN: ${DASHBOARD_CHAT_TOKEN:-}
+      DASHBOARD_CHAT_ALLOWED_ORIGIN: ${DASHBOARD_CHAT_ALLOWED_ORIGIN:-}
+      # Captcha (Cloudflare Turnstile) on the change-password endpoint. Empty => the check is
+      # skipped. Pair with the frontend's NEXT_PUBLIC_TURNSTILE_SITE_KEY.
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      # Label shown in authenticator apps for the MFA enrollment.
+      MFA_TOTP_ISSUER: ${MFA_TOTP_ISSUER:-Atlas}
+    # 8081, not 8090 — 8090 is the Pandora AI Gateway's own host port (see
+    # pandora-ai-gateway/docker-compose.homelab.yml). This file had drifted to 8090 (a real
+    # latent port-collision bug, never actually deployed — the server's own copy at
+    # ~/atlas-go-homelab/docker-compose.homelab.yml kept the correct 8081 the whole time, so
+    # this only would have broken a *future* redeploy from a fresh copy of this repo file).
+    ports:
+      - "8081:8080"
+    extra_hosts:
+      - "host.docker.internal:172.22.0.1"
+    # On the same docker network as the Pandora gateway so atlas-api can reach it by container
+    # name (pandora-ai-gateway-pandora-gateway-1) — see pandora_config.gateway_url and
+    # DECISIONS.md's hairpin-NAT entry for why the tailnet IP doesn't work from a co-located
+    # container on the same host.
+    networks:
+      - default
+      - pandora-ai-gateway_default
+    volumes:
+      - atlas_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/ready"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    restart: unless-stopped
+
+  atlas-worker:
+    image: ghcr.io/gustavodvp/app-golang-atlas:latest
+    pull_policy: always
+    # entrypoint (not command): the image's ENTRYPOINT is ["/app/api"], so a bare `command:`
+    # override would just pass "/app/worker" as an argument TO the api binary instead of
+    # replacing it, silently running the API server instead of the worker.
+    entrypoint: ["/app/worker"]
+    depends_on:
+      atlas-postgres:
+        condition: service_healthy
+      atlas-api:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://atlas:${DB_PASSWORD}@atlas-postgres:5432/atlas_prod?sslmode=disable
+      APP_BACKUPS_DIR: /app/backups
+      APP_TIMEZONE: America/Sao_Paulo
+      APP_BACKUP_AGE_RECIPIENT: ${APP_BACKUP_AGE_RECIPIENT}
+      # The worker syncs Open Finance (Pluggy): it decrypts the credentials stored under
+      # Configuracoes > Conexoes, so it needs the same key as the API.
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
+    volumes:
+      - atlas_backups:/app/backups
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    restart: unless-stopped
+
+networks:
+  # Owned by the pandora-ai-gateway stack — referenced, never created/modified here. Must already
+  # exist (that stack is up) before this one starts, same convention as pandora-ai-gateway's own
+  # reference to atlas-go_default for the shared Postgres.
+  pandora-ai-gateway_default:
+    external: true
+
+volumes:
+  atlas_postgres_data:
+  atlas_uploads:
+  atlas_backups:

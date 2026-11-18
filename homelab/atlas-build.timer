@@ -1,0 +1,11 @@
+[Unit]
+Description=Roda atlas-build.service a cada 2 minutos (build local -> GHCR)
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+Persistent=true
+Unit=atlas-build.service
+
+[Install]
+WantedBy=timers.target

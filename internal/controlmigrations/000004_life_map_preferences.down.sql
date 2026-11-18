@@ -1,0 +1,7 @@
+ALTER TABLE member_permissions DROP CONSTRAINT IF EXISTS member_permissions_module_check;
+ALTER TABLE member_permissions ADD CONSTRAINT member_permissions_module_check
+    CHECK (module IN ('categories', 'clients', 'loans', 'expenses', 'income', 'assets',
+        'documents', 'people', 'personinfo', 'health', 'pets', 'reports', 'notifications',
+        'integrations', 'finance', 'dashboardlayout'));
+
+DROP TABLE IF EXISTS life_map_preferences;

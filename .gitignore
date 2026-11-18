@@ -1,0 +1,35 @@
+# Binaries / large generated fixtures
+testdata/prod-dump.sql
+testdata/seed.sql
+
+# Go
+/bin/
+*.exe
+*.test
+coverage.out
+/api
+/worker
+/migrate-legacy
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# Local env
+.env
+.env.local
+
+# Agent chat bus (conversation, never tracked)
+comms/bus.jsonl
+comms/bus.py
+comms/index.html
+comms/README.md
+comms/bus.log
+
+# Local file storage (documents/reports) — runtime data, never tracked
+/uploads/
+
+# Local Go build cache (set via GOCACHE when running tests in a worktree)
+/.cache/

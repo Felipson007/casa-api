@@ -1,0 +1,13 @@
+[Unit]
+Description=Atualiza o container atlas-api (docker compose pull + up -d)
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=CHANGE_ME
+# Ajuste este caminho pra onde você de fato colocou os arquivos de deploy (ver docs/homelab-deploy.md).
+WorkingDirectory=/home/CHANGE_ME/atlas-go-homelab
+ExecStart=/usr/bin/docker compose -f docker-compose.homelab.yml pull
+ExecStart=/usr/bin/docker compose -f docker-compose.homelab.yml up -d
